@@ -5,8 +5,10 @@ pthread_mutex_t mutexRenas;
 pthread_mutex_t mutexPapaiNoel;
 pthread_mutex_t mutexElfos;
 pthread_mutex_t mutex;
+
 pthread_cond_t vcPapaiNoel;
 pthread_cond_t vcRenas;
+pthread_cond_t vcElfos;
 
 //Condições de parada
 int renas = 0;
@@ -31,8 +33,11 @@ int main() {
     pthread_mutex_init(&mutexRenas, NULL);
     pthread_mutex_init(&mutexPapaiNoel, NULL);
     pthread_mutex_init(&mutexElfos, NULL);
+    pthread_mutex_init(&mutex, NULL);
+
     pthread_cond_init(&vcPapaiNoel, NULL);
     pthread_cond_init(&vcRenas, NULL);
+    pthread_cond_init(&vcElfos, NULL);
 
     pthread_create(&threadPapaiNoel, NULL, papaiNoel, NULL);
 
@@ -57,8 +62,11 @@ int main() {
     pthread_mutex_destroy(&mutexRenas);
     pthread_mutex_destroy(&mutexPapaiNoel);
     pthread_mutex_destroy(&mutexElfos);
+    pthread_mutex_destroy(&mutex);
+
     pthread_cond_destroy(&vcPapaiNoel);
     pthread_cond_destroy(&vcRenas);
+    pthread_cond_destroy(&vcElfos);
 
     printf("Papai Noel saiu.\n");
     return 0;
@@ -67,25 +75,26 @@ int main() {
 void *elfo(){
     pthread_mutex_lock(&mutexElfos);
     pthread_mutex_lock(&mutex);
-
+    
     elfos++;
+    printf("Um elfo pediu ajuda\n");
+
     if(elfos == 3){
         printf("Três elfos precisam de ajuda!\n");
         pthread_cond_signal(&vcPapaiNoel); //Envia o sinal pro Papai Noel acordar
+        pthread_mutex_unlock(&mutex);
     }
     else{
-        pthread_mutex_unlock(&mutexElfos);
+        pthread_mutex_unlock(&mutex);
+        pthread_cond_wait(&vcElfos, &mutexElfos);
     }
 
-    pthread_mutex_unlock(&mutex);
-    printf("O elfo pediu ajuda\n");
+    pthread_mutex_unlock(&mutexElfos);
 
-    pthread_mutex_lock(&mutex);
-    elfos--;
     if(elfos==0){
         pthread_mutex_unlock(&mutexElfos);
     }
-    pthread_mutex_unlock(&mutex);
+    pthread_cond_signal(&vcElfos);
 
     pthread_exit(NULL);
 }
@@ -111,22 +120,22 @@ void *rena(){
 }
 
 void *papaiNoel(){
-    while(1){
+    while(renas != 9){
         pthread_mutex_lock(&mutexPapaiNoel);
         pthread_cond_wait(&vcPapaiNoel, &mutexPapaiNoel);
         pthread_mutex_lock(&mutex);
 
-        if(renas>=9){
-            printf("Papai Noel acordou e está saindo.\n");
-            pthread_cond_signal(&vcRenas);
-            renas -= 9;
-            break;
-        }
-        else if(elfos == 3){
+        if(elfos == 3){
             printf("Elfos ajudados!\n");
+            elfos -= 3;
+            pthread_cond_signal(&vcElfos);
         }
         pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutexPapaiNoel);
     }
+    printf("Papai Noel acordou e está saindo.\n");
+    pthread_cond_signal(&vcRenas);
+    pthread_cond_signal(&vcElfos);
 
     pthread_exit(NULL);
 }
