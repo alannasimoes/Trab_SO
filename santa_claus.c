@@ -21,14 +21,11 @@ int numElfos = 0;
 void *papaiNoel();
 void *rena();
 void *elfo();
+void manipularThreads();
 
 int main() { 
     printf("Quantos elfos estão trabalhando? ");
     scanf("%d", &numElfos);
-
-    pthread_t threadsRenas[numRenas];
-    pthread_t threadsElfos[numElfos];
-    pthread_t threadPapaiNoel;
 
     pthread_mutex_init(&mutexRenas, NULL);
     pthread_mutex_init(&mutexPapaiNoel, NULL);
@@ -37,27 +34,9 @@ int main() {
 
     pthread_cond_init(&vcPapaiNoel, NULL);
     pthread_cond_init(&vcRenas, NULL);
-    pthread_cond_init(&vcElfos, NULL);
+    pthread_cond_init(&vcElfos, NULL); 
 
-    pthread_create(&threadPapaiNoel, NULL, papaiNoel, NULL);
-
-    for (int i = 0; i < numElfos; i++){ 
-        pthread_create(&threadsElfos[i], NULL, elfo, NULL);
-    }
-
-    for (int i = 0; i < numRenas; i++){     //Refatorar a criação de renas para ser aleatório
-        pthread_create(&threadsRenas[i], NULL, rena, NULL); //Inicializando as renas
-    }
-
-    for (int i = 0; i < numRenas; i++){
-        pthread_join(threadsRenas[i], NULL);
-    }
-
-    for (int i = 0; i < numElfos; i++){
-        pthread_join(threadsElfos[i], NULL);
-    }
-
-    pthread_join(threadPapaiNoel, NULL); 
+    manipularThreads();
 
     pthread_mutex_destroy(&mutexRenas);
     pthread_mutex_destroy(&mutexPapaiNoel);
@@ -88,15 +67,23 @@ void *elfo(){
     }
 
     pthread_cond_wait(&vcElfos, &mutex);
+
+    if (renas == 9){
+        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&mutexElfos);
+        pthread_cond_signal(&vcElfos);
+        pthread_exit(NULL);
+    }
     
     printf("Elfo ajudado!\n");
+    
     pthread_cond_signal(&vcElfos);
 
     elfos--;
     if(elfos==0){
         pthread_mutex_unlock(&mutexElfos);
     }
-    
+
     pthread_mutex_unlock(&mutex);
     pthread_exit(NULL);
 }
@@ -143,7 +130,34 @@ void *papaiNoel(){
 
     printf("Papai Noel acordou e está saindo!\n");
     pthread_cond_signal(&vcRenas);
+    pthread_mutex_unlock(&mutex);
     pthread_cond_signal(&vcElfos);
 
     pthread_exit(NULL);
+}
+
+void manipularThreads(){
+    pthread_t threadsRenas[numRenas];
+    pthread_t threadsElfos[numElfos];
+    pthread_t threadPapaiNoel;
+
+    pthread_create(&threadPapaiNoel, NULL, papaiNoel, NULL);
+
+    for (int i = 0; i < numElfos; i++){ 
+        pthread_create(&threadsElfos[i], NULL, elfo, NULL);
+    }
+
+    for (int i = 0; i < numRenas; i++){     //Refatorar a criação de renas para ser aleatório
+        pthread_create(&threadsRenas[i], NULL, rena, NULL); //Inicializando as renas
+    }
+
+    for (int i = 0; i < numRenas; i++){
+        pthread_join(threadsRenas[i], NULL);
+    }
+
+    for (int i = 0; i < numElfos; i++){
+        pthread_join(threadsElfos[i], NULL);
+    }
+
+    pthread_join(threadPapaiNoel, NULL);
 }
